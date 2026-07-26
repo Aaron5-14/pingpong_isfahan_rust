@@ -185,35 +185,6 @@ impl Score {
     }
 }
 
-// fn find_larger<'a>(str1: &'a String, str2: &'a String) -> &'a String {
-//     if str1.len() > str2.len() { str1 } else { str2 }
-// }
-
-// fn always_ref_first<'a>(str1: &'a String, _str2: &String) -> &'a String {
-//     // processing
-//     str1
-// }
-
-// fn always_ref_second<'a>(str1: &String, str2: &'a String) -> &'a String {
-//     // processing
-//     str2
-// }
-
-// // "    salam" => "salam"
-// fn trim(str1: &String) -> &String {
-//     todo!()
-// }
-
-// fn main() {
-//     let str1 = "salamaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string();
-//     let output;
-//     {
-//         let str2 = "salamaaaaaam".to_string();
-//         output = find_larger(&str1, &str2);
-//     }
-//     println!("{output}");
-// }
-
 #[macroquad::main(window_conf)]
 async fn main() {
     /* Run the game loop, stepping the simulation once per frame. */
