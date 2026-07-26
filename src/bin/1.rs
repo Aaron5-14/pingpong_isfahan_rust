@@ -5,11 +5,15 @@ const WINDOW_H: f32 = 600.0;
 const PADDLE_W: f32 = 12.0;
 const PADDLE_H: f32 = 80.0;
 const BALL_SIZE: f32 = 12.0;
-const MAX_MULTIPLIER: f32 = 3.0;
+const MAX_MULTIPLIER: f32 = 4.0;
 const PADDLE_OFFSET: f32 = 20.0;
-const PADDLE_SPEED: f32 = 400.0; // pixels per second
+const PADDLE_SPEED: f32 = 500.0; // pixels per second
 const WIN_SCORE: u32 = 5;
 
+enum Player {
+    Left,
+    Right,
+}
 struct Paddle<'a> {
     rect: Rect,
     texture: &'a Texture2D,
@@ -66,9 +70,9 @@ impl<'b> Ball<'b> {
                 BALL_SIZE,
                 BALL_SIZE,
             ),
-            vel: Vec2::new(300.0, 220.0),
+            vel: Vec2::new(2.0 * 300.0, 2.0 * 220.0),
             texture,
-            vel_multiplier: 1_f32,
+            vel_multiplier: 1.0_f32,
         }
     }
 
@@ -113,9 +117,17 @@ impl<'b> Ball<'b> {
         }
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self, p: Player) {
         self.rect.x = WINDOW_W / 2.0 - BALL_SIZE / 2.0;
         self.rect.y = WINDOW_H / 2.0 - BALL_SIZE / 2.0;
+        match p {
+            Player::Left => {
+                self.vel.x = -self.vel.x.abs();
+            }
+            Player::Right => {
+                self.vel.x = self.vel.x.abs();
+            }
+        }
     }
 }
 
@@ -157,31 +169,32 @@ impl Score {
         draw_text(&text, WINDOW_W / 2.0 - dims.width / 2.0, 48.0, 48.0, WHITE);
     }
 
-    fn update(&mut self, ball: &mut Ball) -> bool {
+    fn update(&mut self, ball: &mut Ball) -> Option<Player> {
         let left_exit = ball.rect.x + ball.rect.w < 0.0;
         let right_exit = ball.rect.x > WINDOW_W;
-
+        let mut p = Player::Left;
         if left_exit {
             self.right += 1;
+            p = Player::Right;
         }
 
         if right_exit {
+            p = Player::Left;
             self.left += 1;
         }
 
-        // update vel_mult
+        //update vel_mult
         if right_exit || left_exit {
             ball.vel_multiplier = 1.0_f32
                 + (MAX_MULTIPLIER - 1.0_f32) as f32 * (self.right as f32 + self.left as f32) as f32
                     / (2.0_f32 * WIN_SCORE as f32 - 2.0_f32) as f32;
         }
 
-        if right_exit {
-            ball.vel_multiplier = -(ball.vel_multiplier);
+        if left_exit || right_exit {
+            Some(p)
+        } else {
+            None
         }
-        let x = ball.vel_multiplier;
-        println!("{x}");
-        left_exit || right_exit
     }
 }
 
@@ -206,17 +219,25 @@ async fn main() {
 
                 left.update(dt, KeyCode::W, KeyCode::S);
                 right.update(dt, KeyCode::Up, KeyCode::Down);
-                ball.update(dt);
-                ball.check_paddles(&left, &right);
-                if score.update(&mut ball) {
-                    ball.reset();
-                    if score.left >= WIN_SCORE {
-                        winner = "Left player wins!";
-                        game_state = GameState::GameOver;
-                    } else if score.right >= WIN_SCORE {
-                        winner = "Right player wins!";
-                        game_state = GameState::GameOver;
+                let subloop = (ball.vel_multiplier) + 1.0;
+                for _ in 1..(subloop as u8) {
+                    ball.update(dt / subloop);
+                    ball.check_paddles(&left, &right);
+                }
+                // ball.update(dt);
+                // ball.check_paddles(&left, &right);
+                match score.update(&mut ball) {
+                    Some(p) => {
+                        ball.reset(p);
+                        if score.left >= WIN_SCORE {
+                            winner = "Left player wins!";
+                            game_state = GameState::GameOver;
+                        } else if score.right >= WIN_SCORE {
+                            winner = "Right player wins!";
+                            game_state = GameState::GameOver;
+                        }
                     }
+                    None => {}
                 }
 
                 left.draw();
