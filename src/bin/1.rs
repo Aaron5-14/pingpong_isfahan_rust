@@ -5,6 +5,7 @@ const WINDOW_H: f32 = 600.0;
 const PADDLE_W: f32 = 12.0;
 const PADDLE_H: f32 = 80.0;
 const BALL_SIZE: f32 = 12.0;
+const MAX_MULTIPLIER: f32 = 3.0;
 const PADDLE_OFFSET: f32 = 20.0;
 const PADDLE_SPEED: f32 = 400.0; // pixels per second
 const WIN_SCORE: u32 = 5;
@@ -48,14 +49,16 @@ impl<'a> Paddle<'a> {
     }
 }
 
-struct Ball {
+struct Ball<'b> {
     rect: Rect,
     vel: Vec2,
-    texture: Texture2D,
+    texture: &'b Texture2D,
+    // Q1
+    vel_multiplier: f32,
 }
 
-impl Ball {
-    fn new(texture: Texture2D) -> Self {
+impl<'b> Ball<'b> {
+    fn new(texture: &'b Texture2D) -> Self {
         Self {
             rect: Rect::new(
                 WINDOW_W / 2.0 - BALL_SIZE / 2.0,
@@ -65,6 +68,7 @@ impl Ball {
             ),
             vel: Vec2::new(300.0, 220.0),
             texture,
+            vel_multiplier: 1_f32,
         }
     }
 
@@ -82,8 +86,8 @@ impl Ball {
     }
 
     fn update(&mut self, dt: f32) {
-        self.rect.x += self.vel.x * dt;
-        self.rect.y += self.vel.y * dt;
+        self.rect.x += self.vel.x * (dt * self.vel_multiplier);
+        self.rect.y += self.vel.y * (dt * self.vel_multiplier);
 
         // bounce off top wall
         if self.rect.y < 0.0 {
@@ -153,7 +157,7 @@ impl Score {
         draw_text(&text, WINDOW_W / 2.0 - dims.width / 2.0, 48.0, 48.0, WHITE);
     }
 
-    fn update(&mut self, ball: &Ball) -> bool {
+    fn update(&mut self, ball: &mut Ball) -> bool {
         let left_exit = ball.rect.x + ball.rect.w < 0.0;
         let right_exit = ball.rect.x > WINDOW_W;
 
@@ -165,6 +169,18 @@ impl Score {
             self.left += 1;
         }
 
+        // update vel_mult
+        if right_exit || left_exit {
+            ball.vel_multiplier = 1.0_f32
+                + (MAX_MULTIPLIER - 1.0_f32) as f32 * (self.right as f32 + self.left as f32) as f32
+                    / (2.0_f32 * WIN_SCORE as f32 - 2.0_f32) as f32;
+        }
+
+        if right_exit {
+            ball.vel_multiplier = -(ball.vel_multiplier);
+        }
+        let x = ball.vel_multiplier;
+        println!("{x}");
         left_exit || right_exit
     }
 }
@@ -206,7 +222,7 @@ async fn main() {
     let mut winner = "";
     let ball_texture = load_texture("assets/ball.png").await.unwrap();
     let paddle_texture = load_texture("assets/paddle.png").await.unwrap();
-    let mut ball = Ball::new(ball_texture);
+    let mut ball = Ball::new(&ball_texture);
     let mut left = Paddle::new(PADDLE_OFFSET, &paddle_texture);
     let mut right = Paddle::new(WINDOW_W - PADDLE_W - PADDLE_OFFSET, &paddle_texture);
     loop {
@@ -221,7 +237,7 @@ async fn main() {
                 right.update(dt, KeyCode::Up, KeyCode::Down);
                 ball.update(dt);
                 ball.check_paddles(&left, &right);
-                if score.update(&ball) {
+                if score.update(&mut ball) {
                     ball.reset();
                     if score.left >= WIN_SCORE {
                         winner = "Left player wins!";
@@ -259,7 +275,7 @@ async fn main() {
 
                 if is_key_pressed(KeyCode::R) {
                     score = Score::default();
-                    ball.reset();
+                    ball = Ball::new(&ball_texture);
                     left = Paddle::new(PADDLE_OFFSET, &paddle_texture);
                     right = Paddle::new(WINDOW_W - PADDLE_OFFSET - PADDLE_W, &paddle_texture);
                     game_state = GameState::Playing;
