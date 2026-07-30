@@ -7,7 +7,7 @@ const PADDLE_H: f32 = 80.0;
 const BALL_SIZE: f32 = 12.0;
 const PADDLE_OFFSET: f32 = 20.0;
 const PADDLE_SPEED: f32 = 400.0; // pixels per second
-const WIN_SCORE: u32 = 5;
+const WIN_SCORE: u32 = 500;
 
 struct Paddle<'a> {
     rect: Rect,
@@ -63,7 +63,7 @@ impl Ball {
                 BALL_SIZE,
                 BALL_SIZE,
             ),
-            vel: Vec2::new(300.0, 220.0),
+            vel: Vec2::new(300.0, 220.0), //Vec2::new(300.0, 220.0),
             texture,
         }
     }
@@ -98,6 +98,10 @@ impl Ball {
     }
 
     fn check_paddles(&mut self, left: &Paddle, right: &Paddle) {
+        // if self.vel.x < 0.0 {
+        //     let y_left = self.rect.y + BALL_SIZE / 2.0 + self.vel.y * (self.rect.x) / self.vel.x.abs();
+
+        // }
         if self.rect.overlaps(&left.rect) {
             self.rect.x = left.rect.x + left.rect.w; // push ball out
             self.vel.x = self.vel.x.abs();
@@ -168,35 +172,6 @@ impl Score {
         left_exit || right_exit
     }
 }
-
-// fn find_larger<'a>(str1: &'a String, str2: &'a String) -> &'a String {
-//     if str1.len() > str2.len() { str1 } else { str2 }
-// }
-
-// fn always_ref_first<'a>(str1: &'a String, _str2: &String) -> &'a String {
-//     // processing
-//     str1
-// }
-
-// fn always_ref_second<'a>(str1: &String, str2: &'a String) -> &'a String {
-//     // processing
-//     str2
-// }
-
-// // "    salam" => "salam"
-// fn trim(str1: &String) -> &String {
-//     todo!()
-// }
-
-// fn main() {
-//     let str1 = "salamaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_string();
-//     let output;
-//     {
-//         let str2 = "salamaaaaaam".to_string();
-//         output = find_larger(&str1, &str2);
-//     }
-//     println!("{output}");
-// }
 
 #[macroquad::main(window_conf)]
 async fn main() {

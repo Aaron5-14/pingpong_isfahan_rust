@@ -8,11 +8,13 @@ const PADDLE_W: f32 = 12.0;
 const PADDLE_H: f32 = 80.0;
 const BALL_SIZE: f32 = 12.0;
 const MAX_MULTIPLIER: f32 = 3.0;
+const BALL_SPEED_MULTIPLIER: f32 = 2.5;
 const PADDLE_OFFSET: f32 = 20.0;
 const PADDLE_SPEED: f32 = 1500.0; // pixels per second
 const WIN_SCORE: u32 = 5;
-const AI_DIFFICULTY: u8 = 1;
-const AI_UPDATE_RANGE: f32 = 10.0_f32;
+const AI_DIFFICULTY: u8 = 0;
+const AI_UPDATE_RANGE: f32 = 13.0_f32;
+const MAX_THETA: f32 = PI / 3.0;
 
 struct Paddle<'a> {
     rect: Rect,
@@ -44,35 +46,19 @@ impl<'a> Paddle<'a> {
 
     fn update(&mut self, dt: f32, going_up_key: KeyCode, going_down_key: KeyCode, ball: &Ball) {
         match self.ai {
-            Some(difficulty) => match difficulty {
-                0 => {
-                    if self.rect.y + PADDLE_H / 2.0_f32 - ball.rect.y > AI_UPDATE_RANGE {
+            Some(difficulty) => {
+                if ball.vel.x > 0.0 {
+                    let t = (WINDOW_W - ball.rect.x) / ball.vel.x * difficulty as f32 / 2.0;
+                    let y = ball.rect.y + BALL_SIZE / 2.0 + t * ball.vel.y;
+                    let diff = (self.rect.y) + PADDLE_H / 2.0_f32 - y;
+                    if (diff) > AI_UPDATE_RANGE * (3.0 - difficulty as f32) {
                         self.rect.y -= PADDLE_SPEED * dt;
-                    } else if self.rect.y + PADDLE_H / 2.0_f32 - ball.rect.y < -AI_UPDATE_RANGE {
+                    } else if diff < -AI_UPDATE_RANGE * (3.0 - difficulty as f32) {
                         self.rect.y += PADDLE_SPEED * dt;
                     }
                     self.rect.y = clamp(self.rect.y, 0.0, WINDOW_H - PADDLE_H);
                 }
-                1 => {
-                    let t = (WINDOW_W - ball.rect.x) / ball.vel.x;
-                    let y = ball.rect.y + t * ball.vel.y;
-                    if self.rect.y + PADDLE_H / 2.0_f32 - y > 0.0_f32 {
-                        self.rect.y -= PADDLE_SPEED * dt;
-                    } else if self.rect.y + PADDLE_H / 2.0_f32 - y < 0.0_f32 {
-                        self.rect.y += PADDLE_SPEED * dt;
-                    }
-                    self.rect.y = clamp(self.rect.y, 0.0, WINDOW_H - PADDLE_H);
-                }
-
-                _ => {
-                    if self.rect.y + PADDLE_H / 2.0_f32 - ball.rect.y > AI_UPDATE_RANGE {
-                        self.rect.y -= PADDLE_SPEED * dt;
-                    } else if self.rect.y + PADDLE_H / 2.0_f32 - ball.rect.y < -AI_UPDATE_RANGE {
-                        self.rect.y += PADDLE_SPEED * dt;
-                    }
-                    self.rect.y = clamp(self.rect.y, 0.0, WINDOW_H - PADDLE_H);
-                }
-            },
+            }
             None => {
                 if is_key_down(going_down_key) {
                     self.rect.y += PADDLE_SPEED * dt;
@@ -105,7 +91,7 @@ impl<'b> Ball<'b> {
                 BALL_SIZE,
                 BALL_SIZE,
             ),
-            vel: Vec2::new(2.0 * 300.0, 2.0 * 220.0),
+            vel: Vec2::new(BALL_SPEED_MULTIPLIER * 300.0, BALL_SPEED_MULTIPLIER * 220.0),
             texture,
             vel_multiplier: 1_f32,
         }
@@ -142,7 +128,7 @@ impl<'b> Ball<'b> {
 
     fn check_paddles(&mut self, left: &Paddle, right: &Paddle) {
         if self.rect.overlaps(&left.rect) {
-            let mut y_diff = self.rect.y + BALL_SIZE - (left.rect.y + PADDLE_H / 2.0);
+            let mut y_diff = self.rect.y + BALL_SIZE / 2.0 - (left.rect.y + PADDLE_H / 2.0);
             y_diff *= 2.0 / PADDLE_H;
             if y_diff < -1.0 {
                 y_diff = -1.0;
@@ -150,17 +136,16 @@ impl<'b> Ball<'b> {
                 y_diff = 1.0;
             }
             let vel_length = self.vel.length();
-            let coef: f32 = PI;
             self.vel = Vec2 {
-                x: (f32::cos(coef * y_diff)),
-                y: (f32::sin(coef * y_diff)),
+                x: (f32::cos(MAX_THETA * y_diff)),
+                y: (f32::sin(MAX_THETA * y_diff)),
             } * vel_length;
             self.rect.x = left.rect.x + left.rect.w; // push ball out
             self.vel.x = self.vel.x.abs();
         }
 
         if self.rect.overlaps(&right.rect) {
-            let mut y_diff = self.rect.y + BALL_SIZE - (right.rect.y + PADDLE_H / 2.0);
+            let mut y_diff = self.rect.y + BALL_SIZE / 2.0 - (right.rect.y + PADDLE_H / 2.0);
             y_diff *= 2.0 / PADDLE_H;
             if y_diff < -1.0 {
                 y_diff = -1.0;
@@ -168,11 +153,9 @@ impl<'b> Ball<'b> {
                 y_diff = 1.0;
             }
             let vel_length = self.vel.length();
-            let coef: f32 = f32::to_radians(100.0);
-
             self.vel = Vec2 {
-                x: (f32::cos(coef * y_diff)),
-                y: (f32::sin(coef * y_diff)),
+                x: (f32::cos(MAX_THETA * y_diff)),
+                y: (f32::sin(MAX_THETA * y_diff)),
             } * vel_length;
             self.vel.x = -self.vel.x.abs();
             self.rect.x = right.rect.x - self.rect.w; // push ball out

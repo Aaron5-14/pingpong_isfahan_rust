@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use macroquad::prelude::*;
 
 const WINDOW_W: f32 = 800.0;
@@ -6,12 +8,14 @@ const PADDLE_W: f32 = 12.0;
 const PADDLE_H: f32 = 80.0;
 const BALL_SIZE: f32 = 12.0;
 const MAX_MULTIPLIER: f32 = 3.0;
+const BALL_SPEED_MULTIPLIER: f32 = 2.5;
 const PADDLE_OFFSET: f32 = 20.0;
-const PADDLE_SPEED: f32 = 500.0; // pixels per second
+const PADDLE_SPEED: f32 = 1500.0; // pixels per second
 const WIN_SCORE: u32 = 5;
 const AI_DIFFICULTY: u8 = 0;
 const AI_UPDATE_RANGE: f32 = 13.0_f32;
-
+const MAX_THETA: f32 = PI / 3.0;
+const COUNT_DOWN_TIME: f32 = 3.0_f32;
 struct Paddle<'a> {
     rect: Rect,
     texture: &'a Texture2D,
@@ -46,8 +50,8 @@ impl<'a> Paddle<'a> {
                 if ball.vel.x > 0.0 {
                     let t = (WINDOW_W - ball.rect.x) / ball.vel.x * difficulty as f32 / 2.0;
                     let y = ball.rect.y + BALL_SIZE / 2.0 + t * ball.vel.y;
-                    let diff = dbg!(self.rect.y) + PADDLE_H / 2.0_f32 - y;
-                    if dbg!(diff) > AI_UPDATE_RANGE * (3.0 - difficulty as f32) {
+                    let diff = (self.rect.y) + PADDLE_H / 2.0_f32 - y;
+                    if (diff) > AI_UPDATE_RANGE * (3.0 - difficulty as f32) {
                         self.rect.y -= PADDLE_SPEED * dt;
                     } else if diff < -AI_UPDATE_RANGE * (3.0 - difficulty as f32) {
                         self.rect.y += PADDLE_SPEED * dt;
@@ -87,7 +91,7 @@ impl<'b> Ball<'b> {
                 BALL_SIZE,
                 BALL_SIZE,
             ),
-            vel: Vec2::new(2.0 * 300.0, 2.0 * 220.0),
+            vel: Vec2::new(BALL_SPEED_MULTIPLIER * 300.0, BALL_SPEED_MULTIPLIER * 220.0),
             texture,
             vel_multiplier: 1_f32,
         }
@@ -124,11 +128,35 @@ impl<'b> Ball<'b> {
 
     fn check_paddles(&mut self, left: &Paddle, right: &Paddle) {
         if self.rect.overlaps(&left.rect) {
+            let mut y_diff = self.rect.y + BALL_SIZE / 2.0 - (left.rect.y + PADDLE_H / 2.0);
+            y_diff *= 2.0 / PADDLE_H;
+            if y_diff < -1.0 {
+                y_diff = -1.0;
+            } else if y_diff > 1.0 {
+                y_diff = 1.0;
+            }
+            let vel_length = self.vel.length();
+            self.vel = Vec2 {
+                x: (f32::cos(MAX_THETA * y_diff)),
+                y: (f32::sin(MAX_THETA * y_diff)),
+            } * vel_length;
             self.rect.x = left.rect.x + left.rect.w; // push ball out
             self.vel.x = self.vel.x.abs();
         }
 
         if self.rect.overlaps(&right.rect) {
+            let mut y_diff = self.rect.y + BALL_SIZE / 2.0 - (right.rect.y + PADDLE_H / 2.0);
+            y_diff *= 2.0 / PADDLE_H;
+            if y_diff < -1.0 {
+                y_diff = -1.0;
+            } else if y_diff > 1.0 {
+                y_diff = 1.0;
+            }
+            let vel_length = self.vel.length();
+            self.vel = Vec2 {
+                x: (f32::cos(MAX_THETA * y_diff)),
+                y: (f32::sin(MAX_THETA * y_diff)),
+            } * vel_length;
             self.vel.x = -self.vel.x.abs();
             self.rect.x = right.rect.x - self.rect.w; // push ball out
         }
@@ -177,6 +205,7 @@ impl Default for Score {
 enum GameState {
     Playing,
     GameOver,
+    Stopwatch(f32),
 }
 enum Player {
     Left,
@@ -236,16 +265,17 @@ async fn main() {
     loop {
         let dt = get_frame_time();
 
-        match game_state {
+        match &mut game_state {
             GameState::Playing => {
                 clear_background(BLACK);
                 draw_centre_line();
 
-                left.update(dt, KeyCode::W, KeyCode::S, &ball);
-                right.update(dt, KeyCode::Up, KeyCode::Down, &ball);
                 let subloop = (ball.vel_multiplier) + 1.0;
+                let substep = dt / subloop;
                 for _ in 1..(subloop as u8) {
-                    ball.update(dt / subloop);
+                    left.update(substep, KeyCode::W, KeyCode::S, &ball);
+                    right.update(substep, KeyCode::Up, KeyCode::Down, &ball);
+                    ball.update(substep);
                     ball.check_paddles(&left, &right);
                 }
 
@@ -258,6 +288,8 @@ async fn main() {
                         } else if score.right >= WIN_SCORE {
                             winner = "Right player wins!";
                             game_state = GameState::GameOver;
+                        } else {
+                            game_state = GameState::Stopwatch(COUNT_DOWN_TIME);
                         }
                     }
                     None => {}
@@ -297,6 +329,29 @@ async fn main() {
                         &paddle_texture,
                         Some(AI_DIFFICULTY),
                     );
+                    game_state = GameState::Stopwatch(COUNT_DOWN_TIME);
+                }
+            }
+            GameState::Stopwatch(time) => {
+                clear_background(BLACK);
+                draw_centre_line();
+                left.update(dt, KeyCode::W, KeyCode::S, &ball);
+                right.update(dt, KeyCode::Up, KeyCode::Down, &ball);
+                left.draw();
+                right.draw();
+                *time -= dt;
+                if *time > 0.0 {
+                    let sec = f32::ceil(*time);
+                    let text = format!("{sec}");
+                    let dims = measure_text(&text, None, 240, 1.0);
+                    draw_text(
+                        &text,
+                        WINDOW_W / 2.0 - dims.width / 2.0,
+                        WINDOW_H / 2.0 - dims.height / 2.0,
+                        240.0,
+                        WHITE,
+                    );
+                } else {
                     game_state = GameState::Playing;
                 }
             }
