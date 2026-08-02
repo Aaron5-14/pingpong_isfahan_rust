@@ -17,7 +17,8 @@ const AI_DIFFICULTY: u8 = 0;
 const AI_UPDATE_RANGE: f32 = 13.0_f32;
 const MAX_THETA: f32 = PI / 3.0;
 const COUNT_DOWN_TIME: f32 = 3.0_f32;
-const POWERUP_SIZE: f32 = 25.0;
+const POWERUP_SIZE_H: f32 = 100.0;
+const POWERUP_SIZE_W: f32 = 15.0;
 const SHIELD_OFFSET: f32 = 10.0;
 struct Paddle<'a> {
     rect: Rect,
@@ -199,6 +200,28 @@ impl<'b> Ball<'b> {
             }
         }
     }
+
+    fn check_shield(&mut self, stack: &mut Vec<f32>, effect: &PowerUpEffect) {
+        if let PowerUpEffect::Shield = effect {
+            if !stack.is_empty() {
+                if stack[0] > 0.0 {
+                    let shield_x = PADDLE_W + PADDLE_OFFSET + SHIELD_OFFSET;
+                    if self.rect.x < shield_x {
+                        self.rect.x = shield_x;
+                        self.vel.x = self.vel.x.abs();
+                        stack.pop();
+                    }
+                } else {
+                    let shield_x = WINDOW_W - PADDLE_W - PADDLE_OFFSET - SHIELD_OFFSET;
+                    if self.rect.x > shield_x {
+                        self.rect.x = shield_x;
+                        self.vel.x = -self.vel.x.abs();
+                        stack.pop();
+                    }
+                }
+            }
+        }
+    }
 }
 
 fn window_conf() -> Conf {
@@ -305,10 +328,10 @@ impl<'txt> PowerUp<'txt> {
         Self {
             effect: PowerUpEffect::None,
             rect: Rect {
-                x: WINDOW_W / 2.0 - POWERUP_SIZE / 2.0,
+                x: WINDOW_W / 2.0 - POWERUP_SIZE_W / 2.0,
                 y: 0.0,
-                w: POWERUP_SIZE,
-                h: POWERUP_SIZE,
+                w: POWERUP_SIZE_W,
+                h: POWERUP_SIZE_H,
             },
             texture,
             time: 0.0,
@@ -352,7 +375,7 @@ impl<'txt> PowerUp<'txt> {
                 t = 6.0;
             }
         }
-        self.rect.y = gen_range(0.0, WINDOW_H - POWERUP_SIZE);
+        self.rect.y = gen_range(0.0, WINDOW_H - POWERUP_SIZE_H);
         self.time = t;
         t
     }
@@ -459,6 +482,7 @@ impl<'txt> PowerUp<'txt> {
         self.claimed = false;
         match self.effect {
             PowerUpEffect::BigPaddle => {
+                dbg!(stack.len());
                 if stack.pop().unwrap() > 0.0 {
                     right.rect.h = stack.pop().unwrap();
                 } else {
@@ -493,7 +517,9 @@ impl<'txt> PowerUp<'txt> {
                 }
             }
             PowerUpEffect::Shield => {
-                stack.pop();
+                if stack.len() > 0 {
+                    stack.pop();
+                }
             }
             PowerUpEffect::MultiBall => {
                 balls.pop();
@@ -587,6 +613,7 @@ async fn main() {
                                 right.update(substep, KeyCode::Up, KeyCode::Down, &balls);
                                 update_balls(&mut balls, substep);
                                 balls_check_paddles(&mut balls, &left, &right);
+                                balls[0].check_shield(&mut stack, &pu.effect);
                             }
                             match pu.effect {
                                 PowerUpEffect::Shield => {
