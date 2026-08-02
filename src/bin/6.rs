@@ -17,7 +17,7 @@ const AI_DIFFICULTY: u8 = 0;
 const AI_UPDATE_RANGE: f32 = 13.0_f32;
 const MAX_THETA: f32 = PI / 3.0;
 const COUNT_DOWN_TIME: f32 = 3.0_f32;
-const POWERUP_SIZE: f32 = 150.0;
+const POWERUP_SIZE: f32 = 25.0;
 const SHIELD_OFFSET: f32 = 10.0;
 struct Paddle<'a> {
     rect: Rect,
