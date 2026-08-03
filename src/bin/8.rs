@@ -553,6 +553,7 @@ fn balls_check_paddles(balls: &mut Vec<Ball>, left: &Paddle, right: &Paddle) {
     }
 }
 
+#[derive(Clone, Debug)]
 struct Frame<'a> {
     balls: Vec<Ball<'a>>,
     paddles: (Paddle<'a>, Paddle<'a>),
@@ -605,7 +606,7 @@ async fn main() {
     let mut menu_options = ["Single Player vs AI", "Multi Player", "Exit"];
 
     // Q8
-    let mut replay_frames: VecDeque<Frame> = VecDeque::with_capacity(300);
+    let mut replay_frames: VecDeque<Frame> = VecDeque::with_capacity(600);
 
     let mut pu_copy: Option<PowerUp>;
     menu_options.reverse();
@@ -745,6 +746,7 @@ async fn main() {
                 score.draw();
                 if replay_frames.len() == replay_frames.capacity() {
                     replay_frames.pop_front();
+                    replay_frames.pop_front();
                 }
                 let frm = replay_frames
                     .push_back_mut(Frame::new(balls.clone(), (left.clone(), right.clone())));
@@ -754,6 +756,8 @@ async fn main() {
                     }
                     None => {}
                 }
+                let frm_cln = frm.clone();
+                replay_frames.push_back(frm_cln);
             }
             GameState::GameOver => {
                 let dims = measure_text(winner, None, 48, 1.0);
